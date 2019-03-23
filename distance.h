@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <math.h>
-
 #define PI                      3.1415926
 #define EARTH_RADIUS            6378.137        //地球近似半径
 
@@ -40,3 +39,37 @@ double get_distance(double lat1, double lng1, double lat2, double lng2)
 	//printf("dst = %0.3fkm\n", dst);  //dst = 9.281km
 	return dst;
 }
+ float get_diff_time(int a, int b) //a大b小
+{
+	 int minute = a / 1000 - b / 1000;
+	 int second = a / 10 % 100 - b / 10 % 100;
+	 int msecond = a % 10 - b % 10;
+	 if (second < 0)
+	 {
+		 second = second + 60;
+		 minute -= 1;
+	 }
+	 if (msecond < 0)
+	 {
+		 msecond = msecond + 10;
+		 second -= 1;
+	 }
+	 float time = float(minute * 60) + float(second) + float(msecond) / 10;
+	 return time;
+}
+ //求数组方差
+ float variance(float a[], int n)
+ {
+	 float sum = 0;
+	 float average = 0;
+	 for (int i = 0; i < n; i++)
+	 {
+		 sum += a[i];
+	 }
+	 average = sum / n;
+	 sum = 0;
+	 for (int i = 0; i < n; i++)
+		 sum += (a[i] - average)*(a[i] - average);
+	 return sum / n;
+ }
+ 
