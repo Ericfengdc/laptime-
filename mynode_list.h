@@ -17,7 +17,6 @@ typedef unsigned long long uint64_t;
 //定义双向链表的节点 
 typedef struct Node
 {
-	int data;
 	struct Node *prior;
 	struct Node *next;
 	float longitude; //经度
@@ -112,7 +111,7 @@ void out_front_list(Node *head)
 		p = head;
 		while (p != NULL)
 		{
-			printf("%d  ", p->data);
+			printf("%d  ", p->seconds);
 			p = p->next;
 		}
 	}
@@ -133,7 +132,7 @@ void out_reverse_list(Node *head)
 		p = pos_list(head, n);
 		while (p != NULL)
 		{
-			printf("%d  ", p->data);
+			printf("%d  ", p->seconds);
 			p = p->prior;
 		}
 	}
@@ -272,4 +271,13 @@ Node* delect_list(Node *head,int i)
 		free(pos);
 	}
 	return(head);
+}
+//填充数据到节点
+void fill_node_once(float dire, float lat, float lng, int time, float speed, Node * head)
+{
+	head->direction = dire;
+	head->latitude = lat;
+	head->longitude = lng;
+	head->seconds = time;
+	head->speed = speed;
 }
