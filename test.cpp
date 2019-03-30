@@ -11,6 +11,8 @@
 #define direction_change 2//定义在直道内的允许偏差，超过此值意味着开始转弯，偏离直道
 #define collect_length 6
 #define dis_limit 0.008
+#define enumber 12345
+#define time_find_start 500
 
 typedef struct
 {
@@ -23,11 +25,12 @@ typedef struct
 	uint8_t satellites; //锁定卫星数
 
 }stuGPS;
-float max_straight_length = 0;
-float start_point_lat = 0;
-float start_point_lng = 0;
-float start_point_direction = 0;
-bool fill_data_in_Node(Node*p,stuGPS stu) //将传过来的信息保存到链表节点中
+float max_straight_length = enumber;
+float start_point_lat = enumber;
+float start_point_lng = enumber;
+float start_point_direction = enumber;
+//将传过来的信息保存到链表节点中
+bool fill_data_in_Node(Node*p,stuGPS stu) 
 {
 	p->longitude = stu.longitude;
 	p->latitude = stu.latitude;
@@ -80,6 +83,11 @@ void get_straight_dire(Node* head)
 //找到最长直道信息后，用此函数找出数据中符合方向角，经纬度要求的起点数据包，后续可能要用此数据包的时间等信息
 Node* get_start_point(Node *head) 
 {
+	if (head == NULL) 
+	{
+		printf("ERROR in get_start_point：参数节点为空");
+		return NULL;
+	}
 	int num = 0;
 	Node * p = NULL;
 	while (head->next != NULL)
@@ -114,16 +122,14 @@ Node* get_start_point(Node *head)
 		return NULL;
 	}
 }
-bool iscrossed2(float prior_dis,float next_dis) 
+//判断当前起点是否越过了真正起点
+bool iscrossed(Node *p)
 {
-	if (prior_dis < next_dis) 
+	if (p == NULL)
 	{
-		return true;
+		printf("ERROR in iscrossed：参数节点为空");
+		return NULL;
 	}
-	else return false;
-}
-bool iscrossed(Node *p)//判断当前起点是否越过了真正起点
-{
 	float last_node_dis = 0, next_node_dis = 0;
 	last_node_dis = distance(p->prior->latitude, p->prior->longitude,start_point_lat, start_point_lng);
 	next_node_dis = distance(p->next->latitude, p->next->longitude,start_point_lat, start_point_lng);
@@ -133,7 +139,8 @@ bool iscrossed(Node *p)//判断当前起点是否越过了真正起点
 	}
 	else return false;
 }
-bool is_straight(float dire[],int n) //判断是否是直道
+//判断是否是直道
+bool is_straight(float dire[],int n) 
 {
 	if (variance(dire, n) < dire_change_variance)//方向角变化幅度小，即直道
 		return true;
@@ -149,14 +156,6 @@ float setstart_point(stuGPS stu)
 
 }
 //模拟环境，每100ms调用一次，填充数据和链表
-void fill_node_once(float dire,float lat,float lng,int time,float speed,Node * head) 
-{
-	head->direction = dire;
-	head->latitude = lat;
-	head->longitude = lng;
-	head->seconds = time;
-	head->speed = speed;
-}
 //（abandoned）方向是否变化
 bool is_dire_change(float old_direction,float direction)
 {
@@ -170,6 +169,11 @@ bool is_dire_change(float old_direction,float direction)
 //计算圈时,公式为（t2-delta_t2）-(t1-delata_t1),t1为上圈时间，delta_t1为上一圈插值
 float laptime(Node *last_start,Node* this_start) //
 {
+	if (last_start == NULL||this_start == NULL)
+	{
+		printf("ERROR in iscrossed：参数节点为空");
+		return 0;
+	}
 	float delta_t1=0, delta_t2 = 0,t1=0,t2=0;
 	delta_t1 = 1000*distance(last_start->latitude, last_start->longitude, start_point_lat, start_point_lng) / last_start->speed;
 	delta_t2 = 1000*distance(this_start->latitude, this_start->longitude, start_point_lat, start_point_lng) / this_start->speed;
@@ -184,7 +188,30 @@ float laptime(Node *last_start,Node* this_start) //
 
 	return get_diff_time(this_start->seconds,last_start->seconds)-delta_t2+delta_t1;
 }
-
+//判断当前节点是不是离起点距离最短的
+bool is_start(Node*p,Node*last_start) 
+{
+	if (p->next == NULL) 
+	{
+		printf("ERROR:计算距离差时节点后继为空");
+		return false;
+	}
+	if (last_start == NULL) 
+	{
+		printf("ERROR:计算距离差时上个起点为空");
+	}
+	float dis = distance(start_point_lat, start_point_lng, p->latitude, p->longitude);
+	float next_dis = distance(start_point_lat, start_point_lng, p->next->latitude, p->next->longitude);
+	float prior_dis = distance(start_point_lat, start_point_lng, p->prior->latitude, p->prior->longitude);
+	if (dis < dis_limit&&dis < next_dis&&dis < prior_dis) //距离限度
+	{
+		printf("距离为：%f  时间是：%d 速度是：%f\n", dis, p->seconds, p->speed);
+		printf("前：%f,后：%f,此：%f\n", prior_dis, next_dis, dis);
+		printf("本圈时间为：%.2f\n\n", laptime(last_start, p));//计算此圈圈速
+		return true;
+	}
+	return false;
+}
 int main()
 {
 	stuGPS s;
@@ -197,48 +224,57 @@ int main()
 	float lng[5000];
 	int time[5000];
 	float speed[5000];
-    read_dire2node_once("C:\\Users\\Administrator\\Desktop\\data\\dire_long.txt", direction);
-    read_lat2node_once("C:\\Users\\Administrator\\Desktop\\data\\lat_long.txt", lat);
+	int index=0;//记录目前节点数,即节点索引
+    	read_dire2node_once("C:\\Users\\Administrator\\Desktop\\data\\dire_long.txt", direction);
+    	read_lat2node_once("C:\\Users\\Administrator\\Desktop\\data\\lat_long.txt", lat);
 	read_lng2node_once("C:\\Users\\Administrator\\Desktop\\data\\lng_long.txt", lng);
 	read_time2node_once("C:\\Users\\Administrator\\Desktop\\data\\time.txt", time);
 	read_speed2node_once("C:\\Users\\Administrator\\Desktop\\data\\speed.txt", speed);
 
 	Node*test=create_list(1);
-
-	fill_node_once(direction[0], lat[0], lng[0], time[0],speed[0],test);
-	for (int i = 1; i < 470; i++)//预存第一圈数据
+	Node*new_circle = NULL;
+	Node*p = NULL;//计算时间时指向当前节点
+	Node*last_start = NULL;//指向上一次的起点
+	while (index<4726)
 	{
-		Node*p = create_node();
-		fill_node_once(direction[i], lat[i], lng[i],time[i],speed[i],p);
-		insert_list(test, p);
-	}
-
-	get_straight_dire(test);//找到直道数据
-	Node*new_circle=get_start_point(test);//找到后面圈的起点
-	start_point_lat = new_circle->latitude;//找到后更新起点位置数据（旧起点没有准确时间）
-	start_point_lng = new_circle->longitude;
-
-	for (int i = 470; i < 4726; i++)//插入下一圈
-	{
-		Node*p = create_node();
-		fill_node_once(direction[i], lat[i], lng[i],time[i],speed[i],p);
-		//Sleep(1);
-		insert_list(test,p);
-	}
-	Node *p = new_circle->next;
-	Node *last_start = new_circle;//记录上一圈的起点节点，用来计算下一圈的时间
-	while (p->next != NULL) 
-	{
-		float dis = distance(new_circle->latitude, new_circle->longitude, p->latitude, p->longitude);
-		float next_dis = distance(new_circle->latitude, new_circle->longitude, p->next->latitude, p->next->longitude);
-		float prior_dis = distance(new_circle->latitude, new_circle->longitude, p->prior->latitude, p->prior->longitude);
-		if (dis < dis_limit&&dis < next_dis&&dis < prior_dis) //距离限度
+		//每次进入先增加节点
+		Node*new_node = create_node();
+		//sleep(1000);
+		fill_node_once(direction[index], lat[index], lng[index], time[index], speed[index], new_node);//调用小尘接口（放在参数里）
+		insert_list(test, new_node);
+		//当50秒之后开始找起点
+		if(len_list(test)>=time_find_start&&start_point_lat==enumber)
 		{
-			printf("距离为：%f  时间是：%d 速度是：%f\n", dis, p->seconds, p->speed);
-			printf("前：%f,后：%f,此：%f\n", prior_dis,next_dis,dis);
-			printf("本圈时间为：%.2f\n\n",laptime(last_start,p));//计算此圈圈速
-			last_start = p;
+			get_straight_dire(test);//找到直道数据
+			new_circle = get_start_point(test);//找到后面圈的起点
+			start_point_lat = new_circle->latitude;//找到后更新起点位置数据（旧起点是平均值，没有准确时间）
+			start_point_lng = new_circle->longitude;
 		}
-		p = p->next;
+		if(new_circle!=NULL)
+		{	
+			//首次初始化,完成后在new_circle和第500个节点之间试图寻找一圈终点
+			if (p == NULL)
+			{
+				p = new_circle->next; 
+				last_start = new_circle;//记录上一圈的起点节点，用来计算下一圈的时间
+				//在new_circle和第500个节点之间试图寻找一圈终点
+				while (p->next != NULL)
+				{
+					if (is_start(p, last_start)) 
+					{
+						last_start = p;//上一个起点的更新
+					}
+					p = p->next;
+				}
+			}
+			p = new_node->prior;//p指向最新节点的前一个，因为需要与后一个节点判断距离差（assert p->next!=NULL）
+			if (is_start(p, last_start))
+			{
+				last_start = p;//上一个起点的更新
+			}
+			p = p->next;
+		}
+		index++;
 	}
+
 }
