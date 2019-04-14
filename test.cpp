@@ -1,4 +1,4 @@
-// test.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
+//😂😂😂😂😂（这表情也可以放这？？？）
 #include "pch.h"
 #include <windows.h>
 #include <iostream>
@@ -125,17 +125,6 @@ bool is_straight(float dire[],int n)
 		return true;
 	return false;
 }
-//模拟环境，每100ms调用一次，填充数据和链表
-//（abandoned）方向是否变化
-bool is_dire_change(float old_direction,float direction)
-{
-	if (abs(old_direction - direction) > direction_change) 
-	{
-		return true;
-	}
-	return false;
-
-}
 //计算圈时,公式为（t2-delta_t2）-(t1-delata_t1),t1为上圈时间，delta_t1为上一圈插值
 float laptime(Node *last_start,Node* this_start) //
 {
@@ -155,7 +144,6 @@ float laptime(Node *last_start,Node* this_start) //
 	{
 		delta_t2 = -delta_t2;
 	}
-	printf("本次时间差值为%f", -delta_t2 + delta_t1);
 	return get_diff_time(this_start->seconds,last_start->seconds)-delta_t2+delta_t1;
 }
 //判断当前节点是不是离起点距离最短的
@@ -183,6 +171,18 @@ bool is_start(Node*p,Node*last_start)
 	}
 	return false;
 }
+void set_start(Node*lap,Node*new_circle) 
+{
+	start_point_lat = new_circle->latitude;//找到后更新起点位置数据（旧起点是平均值，没有准确时间）
+	start_point_lng = new_circle->longitude;
+	lap_count = 1;//当前为第一圈
+}
+void update_dis(float&prior_dis,float&dis,float&next_dis,Node*p) 
+{
+	prior_dis = dis;
+	dis = next_dis;
+	next_dis = distance(start_point_lat, start_point_lng, p->latitude, p->longitude);
+}
 float sum_dis(Node*a,Node*b) 
 {
 	float sum=0;
@@ -197,6 +197,12 @@ float sum_dis(Node*a,Node*b)
 		a = a->next;
 	}
 	return sum;
+}
+void update_mileage(float&seg_mileage,float&mileage,Node *p) 
+{
+	seg_mileage = distance(p->latitude, p->longitude, p->next->latitude, p->next->longitude);
+	//总里程
+	mileage += seg_mileage;
 }
 //更新最快圈数据
 float* load_fast_speed(Node*start,Node*last,float fast[500])
@@ -253,25 +259,20 @@ int* load_fast_time(Node*start, Node*last, int time[500])
 	for (i; i < 500; i++)
 	{
 		time[i] = time[last_index];
+		
 	}
 	return time;
+	
 }
-float get_timediff(float speed_prior,float speed_next,int index)//获取实时时间差
+//dis为当前车走过的总距离，start_time_lap是本圈起始时的时间，now_seconds是当前时间
+float get_timediff(float dis,int start_time_lap,int now_seconds)
 {
-	float speed = 0.5 * (speed_next + speed_prior);//平均速度
-	float fast_mi = (fastest_speed[index] + fastest_speed[index + 1]) / 2;
-	float result=(0.1*(1-fast_mi/speed));
-	//printf("index:%d 最快速度：%f,当前速度：%f,增量：%f", index,fastest_speed[index], speed,result);
-	//printf("时间差 %f\n", result);
-	return result;
-}
-//index为节点编号，即当前时间
-float get_timediff1(float dis,int start_time_lap,int now_seconds)
-{
-	float now_time = get_diff_time(now_seconds, start_time_lap);
-	float timediff_remain=0;//在最快圈中找不到对应里程时，按照
+	float now_time = get_diff_time(now_seconds, start_time_lap);//当前圈当前用时
 	if (lap_count == 1)
-		printf("当前为第一圈");
+	{
+		printf("当前为第一圈\n");
+		return 0;
+	}
 	for (int i = 0; i < 500; i++) //i是当前序号也是当前圈时间
 	{
 
@@ -289,128 +290,135 @@ float get_timediff1(float dis,int start_time_lap,int now_seconds)
 			else
 				fast_time = diff_dis / fastest_speed[i]*3600+ fast_node_time;
 			float timediff =fast_time- now_time ;
-			printf("当前时间%d,当前圈当前时间：%f,最快圈当前时间：%f,领先时间：%f\n",now_seconds,now_time,fast_time,timediff);
+			printf("当前时间%d,当前圈当前时间：%f,最快圈当前时间：%f,领先时间：%.2f\n",now_seconds,now_time,fast_time,timediff);
 			return timediff;//单位为秒
 		}
 	}
-	printf("ERROR:当前点在最快圈中找不到里程");
 	return 0;
 }
+/*数据丢弃，上一圈的数据丢弃*/
+Node*delete_lap(Node*lap) 
+{
+	return NULL;
+}
+/*测试区代码，使用时需重写*/
+void load_data(float direction[5000],float lat[5000],float lng[5000],int time[5000],float speed[5000])
+{
+	read_dire2node_once("C:\\Users\\Administrator\\Desktop\\data\\dire_long.txt", direction);
+	read_lat2node_once("C:\\Users\\Administrator\\Desktop\\data\\lat_long.txt", lat);
+	read_lng2node_once("C:\\Users\\Administrator\\Desktop\\data\\lng_long.txt", lng);
+	read_time2node_once("C:\\Users\\Administrator\\Desktop\\data\\time.txt", time);
+	read_speed2node_once("C:\\Users\\Administrator\\Desktop\\data\\speed.txt", speed);
+}
+/*测试区end*/
 int main()
 {
-	//float *speed= (float*)malloc(sizeof(float)*collect_length);//寻找起始点时监控速度变化，大小为6，一秒一次
 	float direction[5000];
 	float lat[5000];
 	float lng[5000];
 	int time[5000];
 	float speed[5000];
-	int index=0,fast_index=0,timediff_index=0;//节点索引(测试用)，最快圈索引，计算时间差用的索引
-    read_dire2node_once("C:\\Users\\Administrator\\Desktop\\data\\dire_long.txt", direction);
-    read_lat2node_once("C:\\Users\\Administrator\\Desktop\\data\\lat_long.txt", lat);
-	read_lng2node_once("C:\\Users\\Administrator\\Desktop\\data\\lng_long.txt", lng);
-	read_time2node_once("C:\\Users\\Administrator\\Desktop\\data\\time.txt", time);
-	read_speed2node_once("C:\\Users\\Administrator\\Desktop\\data\\speed.txt", speed);
-
-	Node*test=create_list(1);
-	Node*new_circle = NULL;
+	int index=0,fast_index=0,start_time_lap = 0;//节点索引，最快圈索引,本圈起始时间
+	float dis = 0, next_dis = 0, prior_dis = 0, minlaptime = enumber;
+	//当前圈里程和当前圈当前段里程
+	float mileage = 0, seg_mileage = 0;
+	//新建节点为整个过程起点
+	Node*lap=create_list(1);
+	Node*new_circle = NULL;//保存第一圈起点
 	Node*p = NULL;//计算时间时指向当前节点
 	Node*last_start = NULL;//指向上一次的起点
-	float dis = 0, next_dis = 0, prior_dis = 0,minlaptime= enumber,time_diff=0;
-	//当前圈里程和当前圈当前段里程
-	float mileage = 0,seg_mileage=0;
-	int start_time_lap=0;
+
+	//加载模拟数据
+	load_data(direction, lat, lng, time, speed);
 	while (index<4724)
 	{
 		//每次进入先新建节点
 		Node*new_node = create_node();
 		//Sleep(100);
 		fill_node_once(direction[index], lat[index], lng[index], time[index], speed[index], new_node);//调用小尘接口（放在参数里）
-		insert_list(test, new_node);
+		insert_list(lap, new_node);
 		//当50秒之后开始找起点
-		if(len_list(test)>=time_find_start&&start_point_lat==enumber)
+		if(len_list(lap)>=time_find_start&&start_point_lat==enumber)
 		{
-			get_straight_dire(test);//找到直道数据
-			new_circle = get_start_point(test);//找到后面圈的起点
-			start_point_lat = new_circle->latitude;//找到后更新起点位置数据（旧起点是平均值，没有准确时间）
-			start_point_lng = new_circle->longitude;
+			get_straight_dire(lap);//找到直道数据
+			new_circle = get_start_point(lap);//找到后面圈的起点
+			set_start(lap,new_circle);//设置起点信息，当前圈数
 			start_time_lap = new_circle->seconds;//当前圈起始时间
-			lap_count = 1;//当前为第一圈
 		}
-		if(new_circle!=NULL)
+		if(new_circle)
 		{	
-			//首次初始化,完成后在new_circle和第500个节点之间试图寻找一圈终点
-			if (p == NULL)
+			/*首次初始化,完成后在new_circle和第500个节点之间试图寻找一圈终点*/
+			if (!p)
 			{
+				/*删除前面的无用节点*/
+				while (lap->next != new_circle)
+				{
+					lap = delect_start_list(lap);
+					printf("长度：%d\n", len_list(lap));
+				}
 				p = new_circle->next; 
 				//记录上一圈的起点节点，用来计算下一圈的时间
 				last_start = new_circle;
-
-				//在new_circle和第500个节点之间试图寻找一圈终点
+				/*在new_circle和第500个节点之间试图寻找一圈终点*/
 				while (p->next != NULL)
 				{
 					//上段距离，这里计算上段距离有原因，因为下面p = new_node->prior之后调整过来计算当前段了
-					seg_mileage = distance(p->prior->latitude,p->prior->longitude,p->latitude,p->longitude);
-					//总里程
-					mileage += seg_mileage;
+					update_mileage(seg_mileage,mileage,p->prior);
 					//dis们的更新
-					prior_dis = dis;
-					dis = next_dis;
-					next_dis = distance(start_point_lat, start_point_lng, p->next->latitude, p->next->longitude);
+					update_dis(prior_dis,dis,next_dis,p->next);
 					//距离限度
 					if (dis < dis_limit&&dis < next_dis&&dis < prior_dis) 
 					{
 						printf("距离为：%f  时间是：%d 速度是：%f\n", dis, p->seconds, p->speed);
-						printf("前：%f,后：%f,此：%f\n", prior_dis, next_dis, dis);
 						printf("本圈时间为：%.2f\n", laptime(last_start, p));//计算此圈圈速
+						printf("本圈距离：%.3f km\n", mileage);
 						last_start = p;//上一个起点的更新
 						start_time_lap = p->seconds;//更新起始时间
 					}
 					p = p->next;	
 					fast_index++;
 				}
+				/*试图寻找结束*/
 			}
-			//在这之前从上一个if出来p=new_node
+			
+			//在这之前从上一个if出来p==new_node,需要调整
 			p = new_node->prior;//p指向最新节点的前一个，因为需要与后一个节点判断距离差（assert p->next!=NULL）,一开始p是第500个node
 			//新节点更新里程
-			seg_mileage = distance(p->latitude, p->longitude, p->next->latitude, p->next->longitude);
-			mileage += seg_mileage;
+			update_mileage(seg_mileage,mileage,p);
 			//dis们的更新,寻找离起点最近的点
-			prior_dis = dis;
-			dis = next_dis;
-			next_dis = distance(start_point_lat, start_point_lng, new_node->latitude, new_node->longitude);;
+			update_dis(prior_dis, dis, next_dis, new_node);
 			//打印当前点相对最快圈时间差距
-			printf("当前点与最快圈差距%f\n",get_timediff1(mileage, start_time_lap,p->seconds));
+			get_timediff(mileage, start_time_lap, p->seconds);
 
 			if (dis < dis_limit&&dis < next_dis&&dis < prior_dis) //距离限度
 			{
 				float lap_time = laptime(last_start, p);
+				printf("领先时间%f\n", minlaptime - lap_time);
 				if (lap_time < minlaptime)
 				{
 					minlaptime = lap_time;
 					load_fast_speed(last_start, p, fastest_speed);//更新最快圈速度
 					load_fast_dis(last_start, p, fastest_dis);//更新最快圈每段距离
-					load_fast_time(last_start,p,fastest_time);
+					load_fast_time(last_start,p,fastest_time);//更新最快圈每段时间戳
 				}
-
-				printf("距离为：%f  时间是：%d 速度是：%f\n", dis, p->seconds, p->speed);
-				printf("前：%f,后：%f,此：%f\n", prior_dis, next_dis, dis);
-				printf("本圈时间为：%.2f\n", lap_time);//计算此圈圈速
-				printf("本圈距离：%.3f km\n", mileage);
 				
+				printf("距离为：%f  时间是：%d 速度是：%f\n", dis, p->seconds, p->speed);
+				printf("本圈时间为：%.2f\n", lap_time);//打印此圈时间
+				printf("本圈距离：%.3f km\n", mileage);
+				/*删除上一圈的节点*/
+				while (lap->next != p) 
+				{
+					lap = delect_start_list(lap);
+					printf("长度%d\n",len_list(lap));
+				}
 				//新一圈更新的数据
 				last_start = p;//上一个起点的更新
 				start_time_lap = p->seconds;
-				timediff_index = 0;//新的一圈时，实时时间差索引,时间差归零。
 				mileage = 0;//总里程清零
-				time_diff = 0;
 				lap_count++;
 			}
-			time_diff += get_timediff(p->speed,p->next->speed,timediff_index);
 			p = p->next;																										
 			//开始计算实时时间差
-			
-			timediff_index++;
-			//printf("最快圈时间为：%f 与最快圈差距%.2f\n",minlaptime,time_diff);
 		}
 		index++;
 	}
