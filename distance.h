@@ -6,12 +6,34 @@
 double radian(double d);
 double get_distance(double lat1, double lng1, double lat2, double lng2);
 
+const float B = 4 / PI;
+const float C = -4 / (PI*PI);
+const float P = 0.225;
 // 求弧度
 double radian(double d)
 {
 	return d * PI / 180.0;   //角度1˚ = π / 180
 }
-
+/*
+double mysin(double x) 
+{
+	return (x - 1 / 6 *pow(x,3) + 1 / 120* pow(x,5) - 1 / 5040* pow(x,7));
+}
+double mycos(double x)
+{
+	return(1 - 1/2*pow(x,2)+1/24*pow(x,4)-1/720*pow(x,6)+1/40320*pow(x,8));
+}
+*/
+double mysin(double x) 
+{
+	float y = B * x + C * x * abs(x);
+	y = P * (y * abs(y) - y) + y;
+	return y;
+}
+double mycos(double x) 
+{
+	return mysin(x+PI/2);
+}
 //计算距离
 double get_distance(double lat1, double lng1, double lat2, double lng2)
 {
@@ -19,24 +41,17 @@ double get_distance(double lat1, double lng1, double lat2, double lng2)
 	double radLat2 = radian(lat2);
 	double a = radLat1 - radLat2;
 	double b = radian(lng1) - radian(lng2);
-
-	double dst = 2 * asin((sqrt(pow(sin(a / 2), 2) + cos(radLat1) * cos(radLat2) * pow(sin(b / 2), 2))));
+	double dst = 2 * asin((sqrt(pow(mysin(a / 2), 2) + mycos(radLat1) * mycos(radLat2) * pow(mysin(b / 2), 2))));
+	//double dst = 2 * asin((sqrt(pow(sin(a / 2), 2) + cos(radLat1) * cos(radLat2) * pow(sin(b / 2), 2))));
 
 	dst = dst * EARTH_RADIUS;
 	dst = round(dst * 10000) / 10000;
 	return dst;
 }
- double distance(float lat1,float lng1,float lat2,float lng2)
+ double distance(double lat1,double lng1,double lat2,double lng2)
 {
 
-	//double lat1 = 39.90744;
-	//double lng1 = 116.41615;//经度,纬度1
-	//double lat2 = 39.90744;
-	//double lng2 = 116.30746;//经度,纬度2
-	// insert code here...
-
 	double dst = get_distance(lat1, lng1, lat2, lng2);
-	//printf("dst = %0.3fkm\n", dst);  //dst = 9.281km
 	return dst;
 }
  float get_diff_time(int a, int b) //a大b小
@@ -57,19 +72,5 @@ double get_distance(double lat1, double lng1, double lat2, double lng2)
 	 float time = float(minute * 60) + float(second) + float(msecond) / 10;
 	 return time;
 }
- //求数组方差
- float variance(float a[], int n)
- {
-	 float sum = 0;
-	 float average = 0;
-	 for (int i = 0; i < n; i++)
-	 {
-		 sum += a[i];
-	 }
-	 average = sum / n;
-	 sum = 0;
-	 for (int i = 0; i < n; i++)
-		 sum += (a[i] - average)*(a[i] - average);
-	 return sum / n;
- }
+
  
