@@ -26,7 +26,8 @@ float fastest_lap_lat[500];
 float fastest_lap_lng[500];
 float fastest_lap_dis[500];
 int fastest_lap_time[500];
-float real_segtime[500]; int real_segtime_index = 0;//计算每次与最快圈差距时的实际时间差，显示时为滤波时间
+float real_segtime[500]                         = { 0 };
+int real_segtime_index                          = 0;//计算每次与最快圈差距时的实际时间差，显示时为滤波时间
 
 /*测试区end*/
 int main()
@@ -34,15 +35,16 @@ int main()
 	float direction[5000];
 	float lat[5000];
 	float lng[5000];
-	int time[5000];
+	int	  time[5000];
 	float speed[5000];
-	int index = 0, fast_index = 0, start_time_lap = 0;//节点索引，最快圈索引,本圈起始时间
-	float dis = 0, next_dis = 0, prior_dis = 0, minlaptime = enumber;
-	float mileage = 0, seg_mileage = 0;               //当前圈里程和当前圈当前段里程                                              
-	Node*lap = create_list(1);                        //新建节点为整个过程起点
-	Node*new_circle = NULL;                           //保存第一圈起点
-	Node*p = NULL;                                    //计算时间时指向当前节点
-	Node*last_start = NULL;                           //指向上一次的起点
+	int	index           = 0, fast_index = 0, start_time_lap = 0;   //节点索引，最快圈索引,本圈起始时间
+	float dis           = 0, next_dis = 0, prior_dis = 0, minlaptime = enumber;
+	float mileage       = 0, seg_mileage = 0;                      //当前圈里程和当前圈当前段里程  
+	float last_time_diff = 0;					                   //上次时间差，用来滤波
+	Node*lap            = create_list(1);                          //新建节点为整个过程起点
+	Node*new_circle     = NULL;                                    //保存第一圈起点
+	Node*p              = NULL;                                    //计算时间时指向当前节点
+	Node*last_start     = NULL;                                    //指向上一次的起点
 
 	                                                                                                  
 	load_data(direction, lat, lng, time, speed);													  //加载模拟数据
@@ -101,7 +103,7 @@ int main()
 			update_dis(prior_dis, dis, next_dis, new_node);
 			//打印当前点相对最快圈时间差距
 			//get_timediff(mileage,start_time_lap,p->seconds);
-			get_timediff1(p->latitude, p->longitude, start_time_lap, p->seconds, time_compare_node_index);
+			last_time_diff = get_timediff1(p->latitude, p->longitude, start_time_lap, p->seconds, time_compare_node_index, last_time_diff);
 
 			if (dis < dis_limit&&dis < next_dis&&dis < prior_dis) //距离限度
 			{
@@ -117,24 +119,23 @@ int main()
 
 				printf("本圈时间为：%.2f\n", lap_time);//打印此圈时间
 				printf("本圈距离：%.3f km  dis:%f  \n", mileage, distance(p->latitude, p->longitude, start_point_lat, start_point_lng));
-				FILE*f = fopen("C:\\Users\\Administrator\\Desktop\\2.txt", "a");
-				fprintf(f, "第%d圈  ", lap_count);
-				fprintf(f, "本圈时间：%.2f \n", lap_time);
-				fclose(f);
+
 				/*删除上一圈的节点
 				while (lap->next != p)
 					lap = delect_start_list(lap);
 				*/
 				/*新一圈更新的数据*/
+				lap_count++;
 				last_start = p;//上一个起点的更新
 				start_time_lap = p->seconds;
 				mileage = 0;   //总里程清零
 				time_compare_node_index = 0;
-				lap_count++;
+				
 				               //恢复记录真实时间差
 				for (int i = 0; i < 500; i++)
 					real_segtime[i] = 0;
 				real_segtime_index = 0;
+				last_time_diff = 0;
 			}
 			p = p->next;
 								//开始计算实时时间差
@@ -862,12 +863,11 @@ float get_timediff(float dis, int start_time_lap, int now_seconds)
 			return timediff;//单位为秒
 		}
 	}
-	//printf("最快圈最大里程为：%f\n",fastest_lap_dis[499]);
 	printf("里程未找到 里程为%f 时间为%d\n", dis, now_seconds);
 	return 0;
 }
 
-float get_timediff1(float lat, float lng, int start_time_lap, int now_seconds, int &new_index)
+float get_timediff1(float lat, float lng, int start_time_lap, int now_seconds, int &new_index,float last)
 {
 	/*lap 1*/
 	if (lap_count == 1)
@@ -875,10 +875,11 @@ float get_timediff1(float lat, float lng, int start_time_lap, int now_seconds, i
 		printf("当前为第一圈");
 		return 0;
 	}
+	
 	float now_time = get_diff_time(now_seconds, start_time_lap);     //当前圈当前用时
 	int close_index = 0;
 	bool flag_close_edge = false;                                    //最近点序号,flag为1代表是离最快圈旧点更近
-	float close_dis = enumber, temp_dis = 0, dis = 0, across_dis = 0;//最近点距离
+	float close_dis = enumber, temp_dis = 0, dis = enumber, across_dis = 0;//最近点距离
 	/*找到一个下标close_index*/
 	for (int i = new_index; i < 499; i++)
 	{
@@ -919,15 +920,18 @@ float get_timediff1(float lat, float lng, int start_time_lap, int now_seconds, i
 		across_dis = (pow(dis, 2) + pow(dis0, 2) - pow(close_dis, 2)) / 2 / dis0;                    //余弦函数计算插值距离,close在下
 		if (across_dis < 0)
 		{
+			printf("it do happen:%f",dis);
 			across_dis = -across_dis + dis0;
 		}
 	}
 	else
 	{
-		across_dis = (pow(close_dis, 2) + pow(dis0, 2) - pow(dis, 2)) / 2 / dis0;                    //余弦函数计算插值距离，close在上
+		across_dis = (pow(close_dis, 2) + pow(dis0, 2) - pow(dis, 2)) / 2 / dis0;				     //余弦函数计算插值距离，close在上
 	}
 	float acceleration = (fastest_lap_speed[close_index + 1] - fastest_lap_speed[close_index]) / 0.1;//加速度
 	float fast_node_time = get_diff_time(fastest_lap_time[close_index], fastest_lap_time[0]);
+	if (fast_node_time == 0)
+		printf("fast_node_time=0 %d  %d", fastest_lap_time[close_index], fastest_lap_time[0]);
 	float fast_time = 0;                                                                             //真正最快圈时间
 	float smooth_time = 0;
 	if (acceleration != 0)
@@ -938,37 +942,28 @@ float get_timediff1(float lat, float lng, int start_time_lap, int now_seconds, i
 	float timediff = fast_time - now_time;
 	real_segtime[real_segtime_index] = timediff;
 
-	/*平滑数据处理 启发：可以自适应平滑，越到后面越不平滑,*/
-	/*if (timediff - last_timediff > 0.05)
-		timediff = last_timediff + 0.05;
-	else if (last_timediff - timediff > 0.05)
-		timediff = last_timediff - 0.05;
-
-	if (real_segtime_index != 0)
-	{
-		if (timediff - real_segtime[real_segtime_index - 1] > 0.05)
-			timediff = real_segtime[real_segtime_index - 1] + 0.025;
-		else if (timediff - real_segtime[real_segtime_index - 1] < -0.05)
-			timediff = real_segtime[real_segtime_index - 1] - 0.025;
-		printf("被平滑");
-	}
-	*/
-	/*5维滑动窗口平滑
-	for (int i = real_segtime_index; i > real_segtime_index - 4; i--)
-		smooth_time += 0.1*real_segtime[i];
-	timediff = 0.5*timediff + 0.5*smooth_time;
-	*/
-
-
 	if (fastest_lap_lat[close_index + 2] == enumber)
 		printf("到达最快圈结尾");
-	printf("当前时间%d,当前圈当前时间：%.2f,最快圈当前时间：%.2f,插值时间：%f,插值距离%f,领先时间：%.2f\n ", now_seconds, now_time, fast_node_time, fast_time - fast_node_time, dis0, timediff);
+	
 	//printf("lat:%f,lng：%f,lat+1: %f,lng+1:%f 当前lat:%f,lng:%f\n", fastest_lap_lat[close_index], fastest_lap_lng[close_index], fastest_lap_lat[close_index+1], fastest_lap_lng[close_index+1],lat,lng);
-	if (lap_count == 2)
-		write_lap(timediff);
+
+	/*滤波*/
+	if (abs(timediff - last) >= 0.03) 
+	{
+		printf("被迫滤波");
+		if (timediff > last)
+			timediff = last + 0.01;
+		else
+			timediff = last - 0.01;
+	}
+	/*写入文件*/
 
 	new_index = close_index;
 	real_segtime_index++;
+	printf("当前时间%d,当前圈当前时间：%.2f,最快圈当前时间：%.2f,插值时间：%f,插值距离%f,领先时间：%.2f\n ",
+		now_seconds, now_time, fast_node_time, fast_time - fast_node_time, dis0, timediff);
+	if (lap_count == 2)
+		write_lap(timediff);
 	return timediff;//单位为秒
 }
 /*测试区代码，使用时需重写*/
