@@ -80,4 +80,13 @@ Node* delect_list(Node *head, int i);
 //填充数据到节点
 void fill_node_once(float dire, float lat, float lng, int time, float speed, Node * head);
 
+//写数据到文件
 void write_lap(float timediff);
+
+//两个节点之间的距离
+int dis_node(Node* start, Node* end);
+
+//转到后面的第n个节点，若后面没有n个节点，则返回最后一个节点
+Node* jump_node_forward(Node* p, int n);
+
+Node* jump_node_back(Node* p, int n);
