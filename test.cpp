@@ -27,18 +27,17 @@ float real_segtime[500]                         = { 0 };
 int real_segtime_index                          = 0;//计算每次与最快圈差距时的实际时间差，显示时为滤波时间
 
 
-/*测试区end*/
 int main()
 {
 	float direction[5000];
 	float lat[5000];
 	float lng[5000];
-	int	  time[5000];
+	int time[5000];
 	float speed[5000];
-	int	index           = 0, fast_index = 0, start_time_lap = 0;   //节点索引，最快圈索引,本圈起始时间
+	int index           = 0, fast_index = 0, start_time_lap = 0;   //节点索引，最快圈索引,本圈起始时间
 	float dis           = 0, next_dis = 0, prior_dis = 0, minlaptime = enumber;
 	float mileage       = 0, seg_mileage = 0;                      //当前圈里程和当前圈当前段里程  
-	float last_time_diff = 0;					                   //上次时间差，用来滤波
+	float last_time_diff = 0;				       //上次时间差，用来滤波
 	Node*lap            = create_list(1);                          //新建节点为整个过程起点
 	Node*new_circle     = NULL;                                    //保存第一圈起点
 	Node*p              = NULL;                                    //计算时间时指向当前节点
